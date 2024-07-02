@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>ESP32 Control</title>
+    <script src="https://cdn.socket.io/4.0.0/socket.io.min.js"></script>
+</head>
+<body>
+    <h1>ESP32 Control Interface</h1>
+    
+    <h2>Connection Settings</h2>
+    <form id="connection-form">
+        <label for="port">Serial Port:</label>
+        <select id="port" name="port">
+            <!-- Options will be populated dynamically -->
+        </select>
+
+        <label for="baudrate">Baud Rate:</label>
+        <select id="baudrate" name="baudrate">
+            <option value="9600">9600</option>
+            <option value="19200">19200</option>
+            <option value="38400">38400</option>
+            <option value="57600">57600</option>
+            <option value="115200">115200</option>
+        </select>
+        <button type="submit">Connect</button>
+    </form>
+    
+    <h2>Commands</h2>
+    <button onclick="sendCommand('scanap')">SCAN APs</button>
+    <button onclick="sendCommand('scansta')">SCAN STATIONS</button>
+    <button onclick="sendCommand('stopscan')">STOP SCAN</button>
+    
+    <h2>Serial Monitor</h2>
+    <div id="serial-monitor" style="border:1px solid #000; padding:10px; width:400px; height:200px; overflow-y:scroll;"></div>
+
+    <script>
+        const socket = io({transports: ['websocket']});
+
+        // Fetch and populate serial ports
+        fetch('/get_ports')
+            .then(response => response.json())
+            .then(ports => {
+                const portSelect = document.getElementById('port');
+                ports.forEach(port => {
+                    const option = document.createElement('option');
+                    option.value = port.device;
+                    option.textContent = `${port.device} - ${port.description}`;
+                    portSelect.appendChild(option);
+                });
+            })
+            .catch(error => console.error('Error fetching ports:', error));
+
+        document.getElementById('connection-form').addEventListener('submit', function(event) {
+            event.preventDefault();
+            const port = document.getElementById('port').value;
+            const baudrate = document.getElementById('baudrate').value;
+            
+            fetch('/connect', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: `port=${port}&baudrate=${baudrate}`
+            })
+            .then(response => response.text())
+            .then(data => {
+                console.log(data);
+                alert(data);
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Connection failed: ' + error);
+            });
+        });
+
+        function sendCommand(command) {
+            fetch('/send_command', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: `command=${command}`
+            })
+            .then(response => response.text())
+            .then(data => {
+                console.log(`Response: ${data}`);
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Failed to send command: ' + error);
+            });
+        }
+
+        socket.on('connect', function() {
+            console.log("WebSocket connected");
+        });
+
+        socket.on('serial_message', function(msg) {
+            console.log("Received message:", msg);
+            const serialMonitor = document.getElementById('serial-monitor');
+            const newMessage = document.createElement('div');
+            newMessage.textContent = msg.data;
+            serialMonitor.appendChild(newMessage);
+            serialMonitor.scrollTop = serialMonitor.scrollHeight;
+        });
+
+        socket.on('disconnect', function() {
+            console.log("WebSocket disconnected");
+        });
+
+        socket.on('error', function(error) {
+            console.error("WebSocket error:", error);
+        });
+
+        // Add this to check if we're receiving any messages
+        setInterval(() => {
+            console.log("Checking WebSocket connection...");
+            socket.emit('ping');
+        }, 5000);
+
+        socket.on('pong', function() {
+            console.log("Pong received from server");
+        });
+    </script>
+</body>
+</html>
