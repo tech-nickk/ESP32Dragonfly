@@ -5,6 +5,7 @@ import serial
 import serial.tools.list_ports
 import threading
 import time
+from queue import Queue
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'secret!'
@@ -13,6 +14,7 @@ socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
 
 ser = None
 clients = set()
+data_queue = Queue()
 
 def list_serial_ports():
     ports = serial.tools.list_ports.comports()
@@ -23,14 +25,33 @@ def read_from_serial():
     while True:
         if ser and ser.is_open:
             try:
-                line = ser.readline().decode('utf-8').strip()
-                if line:
-                    print(f"Serial read: {line}", flush=True)
-                    socketio.emit('serial_message', {'data': line}, namespace='/')
-                    print(f"Emitted to {len(clients)} clients", flush=True)
+                if ser.in_waiting:
+                    raw_data = ser.readline()
+                    try:
+                        line = raw_data.decode('utf-8').strip()
+                    except UnicodeDecodeError:
+                        line = raw_data.decode('latin-1').strip()
+                        print(f"Warning: Non-UTF-8 data received: {line}", flush=True)
+                    if line:
+                        data_queue.put(line)
             except Exception as e:
                 print(f"Error reading from serial: {e}", flush=True)
-        time.sleep(0.1)
+        else:
+            time.sleep(0.1)
+
+def send_to_clients():
+    while True:
+        if not data_queue.empty():
+            data = []
+            while not data_queue.empty():
+                item = data_queue.get()
+                if isinstance(item, bytes):
+                    item = item.decode('latin-1')
+                data.append(item)
+            if data:
+                print(f"Sending {len(data)} lines to clients", flush=True)
+                socketio.emit('serial_message', {'data': data}, namespace='/')
+        socketio.sleep(0.01)
 
 @app.route('/')
 def index():
@@ -47,7 +68,7 @@ def connect():
     port = request.form['port']
     baudrate = request.form['baudrate']
     try:
-        ser = serial.Serial(port, int(baudrate), timeout=1)
+        ser = serial.Serial(port, int(baudrate), timeout=0)
         print(f"Connected to {port} at {baudrate} baud.", flush=True)
         return 'Connected'
     except Exception as e:
@@ -77,12 +98,13 @@ def handle_disconnect():
     print("Client disconnected", flush=True)
     clients.remove(request.sid)
 
-@socketio.on('ping')
-def handle_ping():
-    emit('pong')
-
 if __name__ == '__main__':
-    thread = threading.Thread(target=read_from_serial)
-    thread.daemon = True
-    thread.start()
+    read_thread = threading.Thread(target=read_from_serial)
+    read_thread.daemon = True
+    read_thread.start()
+
+    send_thread = threading.Thread(target=send_to_clients)
+    send_thread.daemon = True
+    send_thread.start()
+
     socketio.run(app, debug=True, allow_unsafe_werkzeug=True)
