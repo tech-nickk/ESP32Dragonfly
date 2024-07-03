@@ -1,11 +1,11 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>ESP32Dragonfly Control</title>
+    <title>ESP32 Control</title>
     <script src="https://cdn.socket.io/4.0.0/socket.io.min.js"></script>
 </head>
 <body>
-    <h1>ESP32 Control Interface</h1>
+    <h1>ESP32Dragonfly Control Interface</h1>
     
     <h2>Connection Settings</h2>
     <form id="connection-form">
@@ -25,10 +25,23 @@
         <button type="submit">Connect</button>
     </form>
     
-    <h2>Commands</h2>
+    <h2> Scan Commands</h2>
     <button onclick="sendCommand('scanap')">SCAN APs</button>
     <button onclick="sendCommand('scansta')">SCAN STATIONS</button>
     <button onclick="sendCommand('stopscan')">STOP SCAN</button>
+
+    <button onclick="sendCommand('list -a')">LIST APs</button>
+    <button onclick="sendCommand('list -s')">LIST SSIDS</button>
+    <button onclick="sendCommand('list -c')">LIST STATIONS</button>
+
+    <button onclick="sendCommand('select -a all')">SELECT ALL APs</button>
+    <button onclick="sendCommand('select -c all')">SELECT ALL STATIONS</button>
+
+    <h2>Attacks</h2>
+    <button onclick="sendCommand('attack -t deauth')">DEAUTH ATTACK</button>
+    <button onclick="sendCommand('attack -t beacon -a')">BEACON ATTACK</button>
+    <button onclick="sendCommand('attack -t rickroll')">RICKROLL ATTACK</button>
+    <button onclick="sendCommand('attack -t probe')">PROBE ATTACK</button>
     
     <h2>Serial Monitor</h2>
     <div id="serial-monitor" style="border:1px solid #000; padding:10px; width:400px; height:200px; overflow-y:scroll;"></div>
@@ -96,14 +109,16 @@
         });
 
         socket.on('serial_message', function(msg) {
-            console.log("Received message:", msg);
+            console.log("Received messages:", msg);
             const serialMonitor = document.getElementById('serial-monitor');
-            const newMessage = document.createElement('div');
-            newMessage.textContent = msg.data;
-            serialMonitor.appendChild(newMessage);
+            msg.data.forEach(line => {
+                const newMessage = document.createElement('div');
+                // Replace non-printable characters with their hexadecimal representation
+                newMessage.textContent = line.replace(/[^\x20-\x7E]/g, char => `\\x${char.charCodeAt(0).toString(16).padStart(2, '0')}`);
+                serialMonitor.appendChild(newMessage);
+            });
             serialMonitor.scrollTop = serialMonitor.scrollHeight;
         });
-
         socket.on('disconnect', function() {
             console.log("WebSocket disconnected");
         });
