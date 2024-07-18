@@ -1,1 +1,51 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Disclaimer</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f0f0f0;
+        }
+        .disclaimer-box {
+            background-color: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        button {
+            margin: 10px;
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div class="disclaimer-box">
+        <h1>Disclaimer</h1>
+        <p>This application is for educational purposes only.</p>
+        <p>It is designed to demonstrate Wi-Fi security techniques and should only be used in a controlled environment on networks that you own or have permission to test.</p>
+        <p>Performing attacks such as deauthentication, probe, beacon, and evil portals on unauthorized networks is illegal in many countries and can result in severe penalties.</p>
+        <p>By clicking "Accept", you acknowledge that you have read and understood this disclaimer and agree to use this application responsibly and legally.</p>
+        <button onclick="acceptDisclaimer()">Accept</button>
+        <button onclick="rejectDisclaimer()">Reject</button>
+    </div>
 
+    <script>
+        function acceptDisclaimer() {
+            window.location.href = '/accept_disclaimer';
+        }
+
+        function rejectDisclaimer() {
+            window.location.href = 'https://google.com';
+        }
+    </script>
+</body>
+</html>
